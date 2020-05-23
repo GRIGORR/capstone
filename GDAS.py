@@ -116,9 +116,10 @@ if __name__ == '__main__':
                         help='use deconvolution layer instead of standard convolution')
     parser.add_argument('--paper_arch', default=False, action='store_true',
                         help='use architecture in paper not in official implementation')
+    parser.add_argument('--no_gumbel', default=False, action='store_true',
+                        help='use gumbel softmax')
 
     xargs = parser.parse_args()
-    print('Mixed_prec', xargs.mixed_prec)
     xargs.num_classes = 10
     xargs.xshape = (1, 3, 32, 32)
 

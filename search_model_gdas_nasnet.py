@@ -7,7 +7,7 @@ from search_cells import NASNetSearchCell as SearchCell
 class NASNetworkGDAS(nn.Module):
 
     def __init__(self, C, N, steps, multiplier, stem_multiplier, num_classes, search_space, affine,
-                 track_running_stats, fix_reduction, deconv, paper_arch):
+                 track_running_stats, fix_reduction, deconv, paper_arch, no_gumbel):
         super(NASNetworkGDAS, self).__init__()
         self._C = C
         self._layerN = N
@@ -16,6 +16,7 @@ class NASNetworkGDAS(nn.Module):
         self.fix_reduction = fix_reduction
         self.deconv = deconv
         self.paper_arch = paper_arch
+        self.no_gumbel = no_gumbel
         if deconv:
             from cell_operations_deconv import GDAS_Reduction_Cell
             from deconvolution.models.deconv import FastDeconv
@@ -37,7 +38,7 @@ class NASNetworkGDAS(nn.Module):
         self.cells = nn.ModuleList()
         for index, (C_curr, reduction) in enumerate(zip(layer_channels, layer_reductions)):
             if reduction and fix_reduction:
-                cell = GDAS_Reduction_Cell(C_prev_prev, C_prev, C, reduction_prev, multiplier,
+                cell = GDAS_Reduction_Cell(C_prev_prev, C_prev, C_curr, reduction_prev, multiplier,
                                            affine, track_running_stats)
             else:
                 cell = SearchCell(search_space, steps, multiplier, C_prev_prev, C_prev, C_curr, reduction,
@@ -62,20 +63,20 @@ class NASNetworkGDAS(nn.Module):
     def forward(self, inputs):
         def get_gumbel_prob(xins):
             while True:
-                gumbels = -torch.empty_like(xins).exponential_().log()
-                logits = (xins.log_softmax(dim=1) + gumbels) / self.tau
-                probs = nn.functional.softmax(logits, dim=1)
-                index = probs.max(-1, keepdim=True)[1]
+                if self.no_gumbel:
+                    logits = xins / self.tau
+                    probs = nn.functional.softmax(logits, dim=1)
+                    index = torch.multinomial(probs, 1)
+                    gumbels = torch.zeros_like(xins)
+                    # tau 10,1 or 4,1
+                else:
+                    gumbels = -torch.empty_like(xins).exponential_().log()
+                    logits = (xins.log_softmax(dim=1) + gumbels) / self.tau
+                    probs = nn.functional.softmax(logits, dim=1)
+                    index = probs.max(-1, keepdim=True)[1]
+
                 one_h = torch.zeros_like(logits).scatter_(-1, index, 1.0)
                 hardwts = one_h - probs.detach() + probs
-
-                # logits = xins / self.tau
-                # probs = nn.functional.softmax(logits, dim=1)
-                # index = torch.multinomial(probs, 1)
-                # one_h = torch.zeros_like(logits).scatter_(-1, index, 1.0)
-                # hardwts = one_h - probs.detach() + probs
-                # tau 10,1 or 4,1
-
                 if (torch.isinf(probs).any()) or (torch.isnan(probs).any()) or (torch.isinf(gumbels).any()):
                     continue
                 else:
