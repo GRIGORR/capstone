@@ -117,7 +117,7 @@ if __name__ == '__main__':
     parser.add_argument('--paper_arch', default=False, action='store_true',
                         help='use architecture in paper not in official implementation')
     parser.add_argument('--no_gumbel', default=False, action='store_true',
-                        help='use gumbel softmax')
+                        help='Dont use gumbel softmax and sample directly')
 
     xargs = parser.parse_args()
     xargs.num_classes = 10
