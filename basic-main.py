@@ -39,7 +39,7 @@ def main(args):
     # base_model = obtain_model(model_config, args.extra_model_path)
     base_model = get_cifar_models(args)  ###########??????????????????????????????????????
     # optimizer, scheduler, criterion = get_optim_scheduler(base_model.parameters(), optim_config)
-    optimizer = torch.optim.SGD(base_model.get_weights(), args.LR, momentum=args.momentum,
+    optimizer = torch.optim.SGD(base_model.parameters(), args.LR, momentum=args.momentum,
                                 weight_decay=args.decay, nesterov=args.nesterov)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=len(train_loader) * args.epochs,
                                                            eta_min=args.eta_min)
@@ -189,8 +189,8 @@ if __name__ == '__main__':
     parser.add_argument('--rand_seed', type=int, default=1, help='manual seed')
     parser.add_argument('--batch_size', type=int, default=128, help='Batch size for training.')
     args = parser.parse_args()
-
-    if not os.isfile(args.model_path):
+    args.class_num = 10
+    if not os.path.isfile(args.model_path):
         raise ValueError('invalid model_path : {:}'.format(args.model_path))
 
     main(args)
