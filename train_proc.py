@@ -39,20 +39,16 @@ def validate(network, data_loader, criterion, args):
             inputs = inputs.cuda(non_blocking=True)
 
             features, logits = network(inputs)
-            if isinstance(logits, list):
-                assert len(logits) == 2, 'logits must has {:} items instead of {:}'.format(2, len(logits))
-                logits, logits_aux = logits
-            else:
-                logits, logits_aux = logits, None
+            # if isinstance(logits, list):
+            #     assert len(logits) == 2, 'logits must has {:} items instead of {:}'.format(2, len(logits))
+            #     logits, logits_aux = logits
+            # else:
+            #     logits, logits_aux = logits, None
 
             loss = criterion(logits, targets)
-            if args.auxiliary > 0:
-                loss_aux = criterion(logits_aux, targets)
-                loss += args.auxiliary * loss_aux
-
             val_loss += loss.item()
             # record
-            accuracy += obtain_accuracy(logits.data, targets.data, topk=(1,))
+            accuracy += obtain_accuracy(logits.data, targets.data, topk=(1,))[0].item()
 
     return accuracy/len(data_loader), val_loss/len(data_loader)
 
