@@ -6,7 +6,7 @@ def train_one_epoch(network, data_loader, scheduler, optimizer, criterion, args)
     network.train()
     epoch_loss = 0
     for i, (inputs, targets) in enumerate(data_loader):
-        scheduler.update(None, 1.0 * i / len(data_loader))  # fix this
+        # scheduler.step() # (None, 1.0 * i / len(data_loader))  # fix this
         targets = targets.cuda(non_blocking=True)
         inputs = inputs.cuda(non_blocking=True)
         optimizer.zero_grad()
@@ -25,6 +25,8 @@ def train_one_epoch(network, data_loader, scheduler, optimizer, criterion, args)
         epoch_loss += loss.item()
         loss.backward()
         optimizer.step()
+        scheduler.step()
+
     return epoch_loss/len(data_loader)
 
 def validate(network, data_loader, criterion, args):

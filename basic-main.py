@@ -100,11 +100,13 @@ def main(args):
         #       args.drop_path_prob * epoch / total_epoch)
 
         # train for one epoch
-        epoch_loss = train_one_epoch(network, train_loader, scheduler, optimizer, criterion, args, writer)
+        epoch_loss = train_one_epoch(network, train_loader, scheduler, optimizer, criterion, args)
         writer.add_scalars('Loss', {'Train_loss': epoch_loss}, epoch)
+        writer.add_scalars('Learning_rate', {'lr': optimizer.state_dict()['param_groups'][0]['lr']},
+                           epoch)
         # evaluate the performance
         if (epoch % args.eval_frequency == 0) or (epoch + 1 == total_epoch):
-            valid_acc1, valid_loss = validate(network, valid_loader, criterion, args, writer)
+            valid_acc1, valid_loss = validate(network, valid_loader, criterion, args)
             writer.add_scalars('Loss', {'Val_loss': valid_loss}, epoch)
             writer.add_scalars('Accuracy', {'Accuracy': valid_acc1}, epoch)
 
