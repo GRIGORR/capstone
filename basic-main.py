@@ -1,4 +1,4 @@
-import argparse
+import argparse, os
 from PIL import ImageFile
 import numpy as np
 from copy import deepcopy
@@ -7,10 +7,11 @@ import json
 from torch.utils.tensorboard import SummaryWriter
 
 import torch
+
 torch.backends.cudnn.enabled = True
 torch.backends.cudnn.benchmark = True
 
-ImageFile.LOAD_TRUNCATED_IMAGES = True # ?
+ImageFile.LOAD_TRUNCATED_IMAGES = True  # ?
 
 from procedures import prepare_logger, save_checkpoint, copy_checkpoint
 from get_dataset_with_transform import get_datasets
@@ -36,17 +37,17 @@ def main(args):
                                                num_workers=args.workers, pin_memory=True)
 
     # base_model = obtain_model(model_config, args.extra_model_path)
-    base_model = get_cifar_models(args) ###########??????????????????????????????????????
+    base_model = get_cifar_models(args)  ###########??????????????????????????????????????
     # optimizer, scheduler, criterion = get_optim_scheduler(base_model.parameters(), optim_config)
     optimizer = torch.optim.SGD(base_model.get_weights(), args.LR, momentum=args.momentum,
                                 weight_decay=args.decay, nesterov=args.nesterov)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=len(train_loader) * args.epochs,
-                                                             eta_min=args.eta_min)
+                                                           eta_min=args.eta_min)
     criterion = torch.nn.CrossEntropyLoss()
 
     # last_info, model_base_path, model_best_path = logger.path('info'), logger.path('model'), logger.path('best')
-    model_base_path = args.model_path + '/checkpoint/seed-1-basic.pth'
-    model_best_path = args.model_path + '/checkpoint/seed-1-best.pth'
+    model_base_path = args.model_path + f'/checkpoint/seed-{args.rand_seed}-basic.pth'
+    model_best_path = args.model_path + f'/checkpoint/seed-{args.rand_seed}-best.pth'
     network, criterion = torch.nn.DataParallel(base_model).cuda(), criterion.cuda()
 
     # if last_info.exists():  # automatically resume from previous checkpoint
@@ -110,27 +111,37 @@ def main(args):
             valid_accuracies[epoch] = valid_acc1
             if valid_acc1 > valid_accuracies['best']:
                 valid_accuracies['best'] = valid_acc1
-                find_best = True
+                torch.save({
+                    'epoch': epoch,
+                    'base-model': base_model.state_dict(),
+                    'scheduler': scheduler.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                }, model_best_path)
 
         if epoch % 10 == 0:
             torch.cuda.empty_cache()
 
         # save checkpoint
-        save_path = save_checkpoint({
+        # save_path = save_checkpoint({
+        #     'epoch': epoch,
+        #     'valid_accuracies': deepcopy(valid_accuracies),
+        #     'base-model': base_model.state_dict(),
+        #     'scheduler': scheduler.state_dict(),
+        #     'optimizer': optimizer.state_dict(),
+        # }, model_base_path, logger)
+        torch.save({
             'epoch': epoch,
-            'valid_accuracies': deepcopy(valid_accuracies),
             'base-model': base_model.state_dict(),
             'scheduler': scheduler.state_dict(),
             'optimizer': optimizer.state_dict(),
-        }, model_base_path, logger)
+        }, model_base_path)
 
-        if find_best:
-            copy_checkpoint(model_base_path, model_best_path, logger)
-        last_info = save_checkpoint({
-            'epoch': epoch,
-            'args': deepcopy(args),
-            'last_checkpoint': save_path,
-        }, logger.path('info'), logger)
+        #     copy_checkpoint(model_base_path, model_best_path, logger)
+        # last_info = save_checkpoint({
+        #     'epoch': epoch,
+        #     'args': deepcopy(args),
+        #     'last_checkpoint': save_path,
+        # }, logger.path('info'), logger)
 
     logger.log('-' * 200 + '\n')
     logger.close()
@@ -145,7 +156,6 @@ if __name__ == '__main__':
     parser.add_argument('--ichannel', type=int, default=33)
     parser.add_argument('--layers', type=int, default=6)
     parser.add_argument('--stem_multi', type=int, default=3)
-    parser.add_argument('--auxiliary_arch', type=float, default=1)
     parser.add_argument('--drop_path_prob', type=float, default=0.2)
     # "super_type": ["str", "infer-nasnet.cifar"],
     # "genotype": ["none", "none"],
@@ -159,7 +169,7 @@ if __name__ == '__main__':
     parser.add_argument('--momentum', type=float, default=0.9)
     parser.add_argument('--nesterov', type=bool, default=True)
     parser.add_argument('--criterion', type=str, default='Softmax')
-    parser.add_argument('--auxiliary_op', type=float, default=0.4)
+    parser.add_argument('--auxiliary', type=float, default=0.4)
 
     # parser.add_argument('--model_config', type=str, help='The path to the model configuration')
     # parser.add_argument('--optim_config', type=str, help='The path to the optimizer configuration')
@@ -180,7 +190,9 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=128, help='Batch size for training.')
     args = parser.parse_args()
 
+    if not os.isfile(args.model_path):
+        raise ValueError('invalid model_path : {:}'.format(args.model_path))
+
     main(args)
     with open(args.save_dir + '/args.json', 'w') as f:
         json.dump(args.__dict__, f, indent=2)
-

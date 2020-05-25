@@ -58,18 +58,18 @@ def get_cell_based_tiny_net(config):
 
 
 # Try to obtain the network by config.
-def obtain_model(config, extra_path=None):
-    if config.dataset == 'cifar':
-        return get_cifar_models(config, extra_path)
-    elif config.dataset == 'imagenet':
-        return get_imagenet_models(config)
-    else:
-        raise ValueError('invalid dataset in the model config : {:}'.format(config))
+# def obtain_model(config, extra_path=None):
+#     if config.dataset == 'cifar':
+#         return get_cifar_models(config, extra_path)
+#     elif config.dataset == 'imagenet':
+#         return get_imagenet_models(config)
+#     else:
+#         raise ValueError('invalid dataset in the model config : {:}'.format(config))
 
 
 def get_cifar_models(config):
     # super_type = getattr(config, 'super_type', 'basic')
-    extra_path = config.extra_model_path
+    model_path = config.model_path
     # if super_type == 'basic':
     #     from .CifarResNet      import CifarResNet
     #     from .CifarDenseNet    import DenseNet
@@ -97,9 +97,8 @@ def get_cifar_models(config):
     # elif infer_mode == 'nasnet.cifar':
     # genotype = config.genotype
     # if extra_path is not None:  # reload genotype by extra_path
-    if not os.isfile(extra_path):
-        raise ValueError('invalid extra_path : {:}'.format(extra_path))
-    xdata = torch.load(extra_path)
+
+    xdata = torch.load(model_path)
     current_epoch = xdata['epoch']
     genotype = xdata['genotypes'][current_epoch - 1]
     return NASNetonCIFAR(config.ichannel, config.layers, config.stem_multi, config.class_num, genotype,

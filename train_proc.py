@@ -27,7 +27,7 @@ def train_one_epoch(network, data_loader, scheduler, optimizer, criterion, args)
         optimizer.step()
     return epoch_loss/len(data_loader)
 
-def validate(network, data_loader, criterion, args, writer):
+def validate(network, data_loader, criterion, args):
     network.eval()
     accuracy = 0
     val_loss = 0
@@ -42,6 +42,7 @@ def validate(network, data_loader, criterion, args, writer):
                 logits, logits_aux = logits
             else:
                 logits, logits_aux = logits, None
+
             loss = criterion(logits, targets)
             if args.auxiliary > 0:
                 loss_aux = criterion(logits_aux, targets)
