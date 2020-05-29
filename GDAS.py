@@ -3,7 +3,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 torch.backends.cudnn.enabled = True
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
-# from apex import amp
+from apex import amp
 import json
 import argparse
 from copy import deepcopy
@@ -18,8 +18,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 def search_func(xloader, network, criterion, scheduler, w_optimizer, a_optimizer, writer, epoch, mixed_prec=False):
-    base_losses, base_top1, = 0, 0
-    arch_losses, arch_top1, = 0, 0
+    arch_top1 = 0
     network.train()
     train_data = len(xloader)
     for step, (base_inputs, base_targets, arch_inputs, arch_targets) in enumerate(xloader):
@@ -41,9 +40,9 @@ def search_func(xloader, network, criterion, scheduler, w_optimizer, a_optimizer
         torch.nn.utils.clip_grad_norm_(network.parameters(), 5)
         w_optimizer.step()
         # record
-        base_prec1 = obtain_accuracy(logits.data, base_targets.data, topk=(1,))
-        base_losses += base_loss.item()
-        base_top1 += base_prec1[0].item()
+        # base_prec1 = obtain_accuracy(logits.data, base_targets.data, topk=(1,))
+        _, preds_w = torch.max(logits, 1)
+        acc_w = torch.sum(preds_w == base_targets).item() / xloader.batch_size
 
         # update the architecture-weight
         a_optimizer.zero_grad()
@@ -56,9 +55,11 @@ def search_func(xloader, network, criterion, scheduler, w_optimizer, a_optimizer
             arch_loss.backward()
         a_optimizer.step()
         # record
-        arch_prec1 = obtain_accuracy(logits.data, arch_targets.data, topk=(1,))
-        arch_losses += arch_loss.item()
-        arch_top1 += arch_prec1[0].item()
+        # arch_prec1 = obtain_accuracy(logits.data, arch_targets.data, topk=(1,))
+        # arch_top1 += arch_prec1[0].item()
+        _, preds_a = torch.max(logits, 1)
+        acc_a = torch.sum(preds_a == arch_targets).item() / xloader.batch_size
+        arch_top1 += acc_a
 
         writer.add_scalars('Learning_rate', {'lr_w': w_optimizer.state_dict()['param_groups'][0]['lr']},
                            epoch * train_data + step)
@@ -68,9 +69,9 @@ def search_func(xloader, network, criterion, scheduler, w_optimizer, a_optimizer
         writer.add_scalars('Loss', {'Arch_loss': arch_loss.item()}, epoch * train_data + step)
         writer.add_scalars('Loss', {'Mean Loss': (arch_loss.item() + base_loss.item())/2}, epoch * train_data + step)
 
-        writer.add_scalars('Accuracy_1', {'Weight_acc': base_prec1[0].item()}, epoch * train_data + step)
-        writer.add_scalars('Accuracy_1', {'Arch_acc': arch_prec1[0].item()}, epoch * train_data + step)
-        writer.add_scalars('Accuracy_1', {'Mean Accuracy': (arch_prec1[0].item() + base_prec1[0].item())/2}, epoch * train_data + step)
+        writer.add_scalars('Accuracy_1', {'Weight_acc': acc_w}, epoch * train_data + step)
+        writer.add_scalars('Accuracy_1', {'Arch_acc': acc_a}, epoch * train_data + step)
+        writer.add_scalars('Accuracy_1', {'Mean Accuracy': (acc_a + acc_w)/2}, epoch * train_data + step)
 
     return arch_top1 / train_data
 
@@ -130,11 +131,12 @@ if __name__ == '__main__':
     torch.cuda.manual_seed(xargs.rand_seed)
     torch.cuda.manual_seed_all(xargs.rand_seed)
 
-    logger = prepare_logger(xargs)
+    # logger = prepare_logger(xargs)
     writer = SummaryWriter(xargs.save_dir + '/logs')
 
     train_data, valid_data, xshape, class_num = get_datasets(xargs.data_path, -1)
-    search_loader = get_nas_search_loaders(train_data, './cifar-split.txt', xargs.batch_size, xargs.workers)
+    search_loader = get_nas_search_loaders(train_data, xargs.data_path + 'cifar-split.txt', xargs.batch_size,
+                                           xargs.workers)
 
     search_space = ['none', 'skip_connect', 'dua_sepc_3x3', 'dua_sepc_5x5',
                     'dil_sepc_3x3', 'dil_sepc_5x5', 'avg_pool_3x3', 'max_pool_3x3']
@@ -150,9 +152,12 @@ if __name__ == '__main__':
                                    weight_decay=xargs.arch_weight_decay)
     network, criterion = search_model.cuda(), criterion.cuda()
 
-    model_base_path, model_best_path = logger.path('model'), logger.path('best')
+    model_base_path = xargs.save_dir + f'/checkpoint/seed-{xargs.rand_seed}-basic.pth'
+    model_best_path = xargs.save_dir + f'/checkpoint/seed-{xargs.rand_seed}-best.pth'
+    # model_best_path = logger.path('model'), logger.path('best')
 
-    valid_accuracies = {'best': -1}
+    # valid_accuracies = {'best': -1}
+    best_val_acc = -1
     genotypes = {-1: search_model.genotype()}
     if xargs.mixed_prec:
         network, [w_optimizer, a_optimizer] = amp.initialize(network, [w_optimizer, a_optimizer],
@@ -166,27 +171,46 @@ if __name__ == '__main__':
                                    a_optimizer, writer, epoch, mixed_prec=xargs.mixed_prec)
 
         # check the best accuracy
-        valid_accuracies[epoch] = valid_a_top1
+        # valid_accuracies[epoch] = valid_a_top1
         genotypes[epoch] = search_model.genotype()
 
         # save checkpoint
-        save_path = save_checkpoint({'epoch': epoch + 1,
-                                     'args': deepcopy(xargs),
-                                     'search_model': search_model.state_dict(),
-                                     'w_optimizer': w_optimizer.state_dict(),
-                                     'a_optimizer': a_optimizer.state_dict(),
-                                     'w_scheduler': w_scheduler.state_dict(),
-                                     'genotypes': genotypes,
-                                     'valid_accuracies': valid_accuracies},
-                                      model_base_path, logger)
+        torch.save({
+            'epoch': epoch,
+            'search_model': search_model.state_dict(),
+            'w_optimizer': w_optimizer.state_dict(),
+            'a_optimizer': a_optimizer.state_dict(),
+            'w_scheduler': w_scheduler.state_dict(),
+            'genotypes': genotypes,
+                    }, model_base_path)
 
-        if valid_a_top1 > valid_accuracies['best']:
-            valid_accuracies['best'] = valid_a_top1
-            genotypes['best'] = search_model.genotype()
-            copy_checkpoint(model_base_path, model_best_path, logger)
+        # save_path = save_checkpoint({'epoch': epoch + 1,
+        #                              'args': deepcopy(xargs),
+        #                              'search_model': search_model.state_dict(),
+        #                              'w_optimizer': w_optimizer.state_dict(),
+        #                              'a_optimizer': a_optimizer.state_dict(),
+        #                              'w_scheduler': w_scheduler.state_dict(),
+        #                              'genotypes': genotypes,
+        #                              'valid_accuracies': valid_accuracies},
+        #                               model_base_path, logger)
+
+        if valid_a_top1 > best_val_acc:
+            best_val_acc = valid_a_top1
+            torch.save({
+                'epoch': epoch,
+                'search_model': search_model.state_dict(),
+                'w_optimizer': w_optimizer.state_dict(),
+                'a_optimizer': a_optimizer.state_dict(),
+                'w_scheduler': w_scheduler.state_dict(),
+                'genotypes': genotypes,
+            }, model_best_path)
+
+            # valid_accuracies['best'] = valid_a_top1
+            # genotypes['best'] = search_model.genotype()
+            # copy_checkpoint(model_base_path, model_best_path, logger)
 
     with open(xargs.save_dir + '/args.json', 'w') as f:
         json.dump(xargs.__dict__, f, indent=2)
 
-    logger.log('\n' + '-' * 100)
-    logger.close()
+    # logger.log('\n' + '-' * 100)
+    # logger.close()
