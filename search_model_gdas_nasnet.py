@@ -20,7 +20,6 @@ class NASNetworkGDAS(nn.Module):
         if deconv:
             from cell_operations_deconv import GDAS_Reduction_Cell
             from deconvolution.models.deconv import FastDeconv
-
             self.stem = FastDeconv(3, C * stem_multiplier, kernel_size=3, padding=1, bias=False)
         else:
             from cell_operations import GDAS_Reduction_Cell
@@ -68,7 +67,6 @@ class NASNetworkGDAS(nn.Module):
                     probs = nn.functional.softmax(logits, dim=1)
                     index = torch.multinomial(probs, 1)
                     gumbels = torch.zeros_like(xins)
-                    # tau 10,1 or 4,1
                 else:
                     gumbels = -torch.empty_like(xins).exponential_().log()
                     logits = (xins.log_softmax(dim=1) + gumbels) / self.tau
@@ -138,6 +136,8 @@ class NASNetworkGDAS(nn.Module):
         return self.tau
 
     def get_alphas(self):
+        if self.fix_reduction:
+            return [self.arch_normal_parameters]
         return [self.arch_normal_parameters, self.arch_reduce_parameters]
 
     def show_alphas(self):

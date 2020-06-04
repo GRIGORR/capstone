@@ -177,7 +177,6 @@ class FactorizedReduce(nn.Module):
         return 'C_in={C_in}, C_out={C_out}, stride={stride}'.format(**self.__dict__)
 
 
-# Searching for A Robust Neural Architecture in Four GPU Hours
 class GDAS_Reduction_Cell(nn.Module):
 
     def __init__(self, C_prev_prev, C_prev, C, reduction_prev, multiplier, affine, track_running_stats):
@@ -216,32 +215,13 @@ class GDAS_Reduction_Cell(nn.Module):
                     nn.MaxPool2d(3, stride=2, padding=1),
                     nn.BatchNorm2d(C, affine=True))])
 
-    def forward_gdas(self, s0, s1, weightss=0, indexs=0, drop_prob=-1):
-#         print("reduction input", s0.shape, s1.shape)
+    def forward_gdas(self, s0, s1, weightss=0, indexs=0):
         s0 = self.preprocess0(s0)
         s1 = self.preprocess1(s1)
-#         print("after preprocess", s0.shape, s1.shape)
-
         X0 = self.ops1[0](s0)
         X1 = self.ops1[1](s1)
-        # if self.training and drop_prob > 0.:
-        #     X0, X1 = drop_path(X0, drop_prob), drop_path(X1, drop_prob)
-
-        # X2 = self.ops2[0] (X0+X1)
         X2 = self.ops2[0](s0)
         X3 = self.ops2[1](s1)
-        # if self.training and drop_prob > 0.:
-        #     X2, X3 = drop_path(X2, drop_prob), drop_path(X3, drop_prob)
-#         print(X0.shape, X1.shape, X2.shape, X3.shape)
-#         print('reduction output shape', torch.cat([X0, X1, X2, X3], dim=1).shape)
+
         return torch.cat([X0, X1, X2, X3], dim=1)
 
-
-def drop_path(x, drop_prob):
-    if drop_prob > 0.:
-        keep_prob = 1. - drop_prob
-        mask = x.new_zeros(x.size(0), 1, 1, 1)
-        mask = mask.bernoulli_(keep_prob)
-        x = torch.div(x, keep_prob)
-        x.mul_(mask)
-    return x

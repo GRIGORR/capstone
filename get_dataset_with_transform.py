@@ -4,7 +4,6 @@ import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import json
 from SearchDatasetWrap import SearchDataset
-from config_utils import load_config
 
 
 class CUTOUT(object):
@@ -52,20 +51,10 @@ def get_datasets(root, cutout):
 
 
 def get_nas_search_loaders(train_data, config_root, batch_size, workers):
-
-    # split_Fpath = 'configs/nas-benchmark/cifar-split.txt'
-    # cifar_split = load_config(config_root, None, None)
     with open(config_root, 'r') as f:
         cifar_split = json.load(f)
-    train_split, valid_split = cifar_split['train'], cifar_split['valid']  # search over the proposed training and validation set
-    # logger.log('Load split file from {:}'.format(split_Fpath))      # they are two disjoint groups in the original CIFAR-10 training set
+    train_split, valid_split = cifar_split['train'], cifar_split['valid']
     search_data = SearchDataset(train_data, train_split, valid_split)
-    # data loader
     search_loader = torch.utils.data.DataLoader(search_data, batch_size=batch_size, shuffle=True, num_workers=workers,
                                                 pin_memory=True)
     return search_loader
-
-
-# if __name__ == '__main__':
-#  train_data, test_data, xshape, class_num = dataset = get_datasets('cifar10', '/data02/dongxuanyi/.torch/cifar.python/', -1)
-#  import pdb; pdb.set_trace()

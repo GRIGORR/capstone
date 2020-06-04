@@ -42,20 +42,12 @@ OPS = {
                                                                                                                   track_running_stats),
 }
 
-# torch.nn.Conv2d(in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1,
-#                   groups=1, bias=True, padding_mode='zeros')
-
-# FastDeconv(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1,groups=1, bias=True,
-# eps=1e-5, n_iter=5, momentum=0.1, block=64, sampling_stride=3,freeze=False,freeze_iter=100):)
-
 class ReLUConvBN(nn.Module):
     def __init__(self, C_in, C_out, kernel_size, stride, padding, dilation, affine, track_running_stats=True):
         super(ReLUConvBN, self).__init__()
         self.op = nn.Sequential(
             nn.ReLU(inplace=False),
             FastDeconv(C_in, C_out, kernel_size, stride=stride, padding=padding, dilation=dilation, bias=True)
-            # nn.Conv2d(C_in, C_out, kernel_size, stride=stride, padding=padding, dilation=dilation, bias=False),
-            # nn.BatchNorm2d(C_out, affine=affine, track_running_stats=track_running_stats)
         )
 
     def forward(self, x):
@@ -70,11 +62,7 @@ class SepConv(nn.Module):
             nn.ReLU(inplace=False),
             FastDeconv(C_in, C_in, kernel_size=kernel_size, stride=stride, padding=padding, dilation=dilation,
                       groups=C_in, bias=True),
-            # nn.Conv2d(C_in, C_in, kernel_size=kernel_size, stride=stride, padding=padding, dilation=dilation,
-            #           groups=C_in, bias=False),
             FastDeconv(C_in, C_out, kernel_size=1, padding=0, bias=True)
-            # nn.Conv2d(C_in, C_out, kernel_size=1, padding=0, bias=False),
-            # nn.BatchNorm2d(C_out, affine=affine, track_running_stats=track_running_stats),
         )
 
     def forward(self, x):
@@ -164,15 +152,12 @@ class FactorizedReduce(nn.Module):
             C_outs = [C_out // 2, C_out - C_out // 2]
             self.convs = nn.ModuleList()
             for i in range(2):
-                # self.convs.append(nn.Conv2d(C_in, C_outs[i], 1, stride=stride, padding=0, bias=False))
                 self.convs.append(FastDeconv(C_in, C_outs[i], 1, stride=stride, padding=0, bias=True))
             self.pad = nn.ConstantPad2d((0, 1, 0, 1), 0)
         elif stride == 1:
-            # self.conv = nn.Conv2d(C_in, C_out, 1, stride=stride, padding=0, bias=False)
             self.conv = FastDeconv(C_in, C_out, 1, stride=stride, padding=0, bias=True)
         else:
             raise ValueError('Invalid stride : {:}'.format(stride))
-        # self.bn = nn.BatchNorm2d(C_out, affine=affine, track_running_stats=track_running_stats)
 
     def forward(self, x):
         if self.stride == 2:
@@ -188,7 +173,6 @@ class FactorizedReduce(nn.Module):
         return 'C_in={C_in}, C_out={C_out}, stride={stride}'.format(**self.__dict__)
 
 
-# Searching for A Robust Neural Architecture in Four GPU Hours
 class GDAS_Reduction_Cell(nn.Module):
     def __init__(self, C_prev_prev, C_prev, C, reduction_prev, multiplier, affine, track_running_stats):
         super(GDAS_Reduction_Cell, self).__init__()
@@ -208,20 +192,14 @@ class GDAS_Reduction_Cell(nn.Module):
                 nn.BatchNorm2d(C, affine=True),
                 nn.ReLU(inplace=False),
                 FastDeconv(C, C, 1, stride=1, padding=0, bias=True),
-                # nn.Conv2d(C, C, 1, stride=1, padding=0, bias=False),
-                # nn.BatchNorm2d(C, affine=True)
                 ),
                 nn.Sequential(
                     nn.ReLU(inplace=False),
-                    # FastDeconv(C, C, (1, 3), stride=(1, 2), padding=(0, 1), groups=8, bias=False),
-                    # FastDeconv(C, C, (3, 1), stride=(2, 1), padding=(1, 0), groups=8, bias=False),
                     nn.Conv2d(C, C, (1, 3), stride=(1, 2), padding=(0, 1), groups=8, bias=False),
                     nn.Conv2d(C, C, (3, 1), stride=(2, 1), padding=(1, 0), groups=8, bias=False),
                     nn.BatchNorm2d(C, affine=True),
                     nn.ReLU(inplace=False),
                     FastDeconv(C, C, 1, stride=1, padding=0, bias=True),
-                    # nn.Conv2d(C, C, 1, stride=1, padding=0, bias=False),
-                    # nn.BatchNorm2d(C, affine=True)
                 )])
 
         self.ops2 = nn.ModuleList(
@@ -238,23 +216,11 @@ class GDAS_Reduction_Cell(nn.Module):
 
         X0 = self.ops1[0](s0)
         X1 = self.ops1[1](s1)
-        # if self.training and drop_prob > 0.:
-        #     X0, X1 = drop_path(X0, drop_prob), drop_path(X1, drop_prob)
 
-        # X2 = self.ops2[0] (X0+X1)
         X2 = self.ops2[0](s0)
         X3 = self.ops2[1](s1)
-        # if self.training and drop_prob > 0.:
-        #     X2, X3 = drop_path(X2, drop_prob), drop_path(X3, drop_prob)
+
         return torch.cat([X0, X1, X2, X3], dim=1)
 
 
-def drop_path(x, drop_prob):
-    if drop_prob > 0.:
-        keep_prob = 1. - drop_prob
-        mask = x.new_zeros(x.size(0), 1, 1, 1)
-        mask = mask.bernoulli_(keep_prob)
-        x = torch.div(x, keep_prob)
-        x.mul_(mask)
-    return x
 

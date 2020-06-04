@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 from copy import deepcopy
-# from cell_operations import OPS
 
 
 class NASNetSearchCell(nn.Module):
