@@ -90,7 +90,7 @@ class NASNetworkGDAS(nn.Module):
                 hardwts, index = reduce_hardwts, reduce_index
             else:
                 hardwts, index = normal_hardwts, normal_index
-            s0, s1 = s1, cell.forward_gdas(s0, s1, hardwts, index)
+            s0, s1 = s1, cell(s0, s1, hardwts, index)
         out = self.lastact(s1)
         out = self.global_pooling(out)
         out = out.view(out.size(0), -1)

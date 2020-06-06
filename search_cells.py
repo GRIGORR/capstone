@@ -36,7 +36,7 @@ class NASNetSearchCell(nn.Module):
         self.edge2index = {key: i for i, key in enumerate(self.edge_keys)}
         self.num_edges = len(self.edges)
 
-    def forward_gdas(self, s0, s1, weightss, indexs):
+    def forward(self, s0, s1, weightss, indexs):
         s0 = self.preprocess0(s0)
         s1 = self.preprocess1(s1)
 
@@ -48,7 +48,7 @@ class NASNetSearchCell(nn.Module):
                 op = self.edges[node_str]
                 weights = weightss[self.edge2index[node_str]]
                 index = indexs[self.edge2index[node_str]].item()
-                clist.append(op.forward_gdas(h, weights, index))
+                clist.append(op(h, weights, index))
             states.append(sum(clist))
 
         return torch.cat(states[-self._multiplier:], dim=1)
@@ -62,5 +62,5 @@ class MixedOp(nn.Module):
             op = OPS[primitive](C, C, stride, affine, track_running_stats)
             self._ops.append(op)
 
-    def forward_gdas(self, x, weights, index):
+    def forward(self, x, weights, index):
         return self._ops[index](x) * weights[index]

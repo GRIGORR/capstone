@@ -215,7 +215,7 @@ class GDAS_Reduction_Cell(nn.Module):
                     nn.MaxPool2d(3, stride=2, padding=1),
                     nn.BatchNorm2d(C, affine=True))])
 
-    def forward_gdas(self, s0, s1, weightss=0, indexs=0):
+    def forward(self, s0, s1, weightss=0, indexs=0, drop_path_prob=-1):
         s0 = self.preprocess0(s0)
         s1 = self.preprocess1(s1)
         X0 = self.ops1[0](s0)

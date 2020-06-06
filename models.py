@@ -28,8 +28,8 @@ class NASNetonCIFAR(nn.Module):
                 cell = GDAS_Reduction_Cell(C_prev_prev, C_prev, C_curr, reduction_prev, multiplier=4,
                                            affine=affine, track_running_stats=track_running_stats)
             else:
-                cell = NASNetInferCell(genotype, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, affine,
-                                       track_running_stats)
+                cell = NASNetInferCell(genotype, C_prev_prev, C_prev, C_curr, reduction, reduction_prev,
+                                       affine, track_running_stats)
             self.cells.append(cell)
             C_prev_prev, C_prev, reduction_prev = C_prev, cell.multiplier * C_curr, reduction
             if reduction and C_curr == C * 4 and auxiliary:
@@ -63,7 +63,7 @@ class NASNetonCIFAR(nn.Module):
         stem_feature, logits_aux = self.stem(inputs), None
         cell_results = [stem_feature, stem_feature]
         for i, cell in enumerate(self.cells):
-            cell_feature = cell(cell_results[-2], cell_results[-1], self.drop_path_prob)
+            cell_feature = cell(cell_results[-2], cell_results[-1], drop_path_prob=self.drop_path_prob)
             cell_results.append(cell_feature)
             if self.auxiliary_index is not None and i == self.auxiliary_index and self.training:
                 logits_aux = self.auxiliary_head(cell_results[-1])
@@ -105,7 +105,7 @@ class NASNetInferCell(nn.Module):
                 self.edges[node_str] = OPS[name](C, C, stride, affine, track_running_stats)
 
     # [TODO] to support drop_prob in this function..
-    def forward(self, s0, s1, unused_drop_prob):
+    def forward(self, s0, s1, drop_path_prob=0):
         s0 = self.preprocess0(s0)
         s1 = self.preprocess1(s1)
 

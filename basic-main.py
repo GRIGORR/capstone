@@ -23,10 +23,10 @@ def main(args):
     # load searched model genotype, infer the network
     xdata = torch.load(args.model_path)
     genotype = xdata['genotypes'][xdata['epoch'] - 1]
-    with open(args.save_dir + '/args.json', 'r') as file:
+    with open('/'.join(args.model_path.split('/')[:-2]) + '/args.json', 'r') as file:
         search_args = json.load(file)
     base_model = NASNetonCIFAR(args.ichannel, args.layers, args.stem_multi, args.class_num, genotype, args.auxiliary,
-                               paper_arch=search_args.paper_arch, fix_reduction=search_args.fix_reduction)
+                               paper_arch=search_args['paper_arch'], fix_reduction=search_args['fix_reduction'])
     # scheduler, optimizer and loss
     optimizer = torch.optim.SGD(base_model.parameters(), args.LR, momentum=args.momentum,
                                 weight_decay=args.decay, nesterov=args.nesterov)
