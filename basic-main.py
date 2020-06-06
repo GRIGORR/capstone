@@ -7,12 +7,11 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from get_dataset_with_transform import get_datasets
 from models import NASNetonCIFAR
-from train_proc import train_one_epoch
-from train_proc import validate
+from train_proc import train_one_epoch, validate
+
 torch.backends.cudnn.enabled = True
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
-
 
 def main(args):
     # get datasets and dataloaders
@@ -24,8 +23,10 @@ def main(args):
     # load searched model genotype, infer the network
     xdata = torch.load(args.model_path)
     genotype = xdata['genotypes'][xdata['epoch'] - 1]
+    with open(args.save_dir + '/args.json', 'r') as file:
+        search_args = json.load(file)
     base_model = NASNetonCIFAR(args.ichannel, args.layers, args.stem_multi, args.class_num, genotype, args.auxiliary,
-                               paper_arch=args.paper_arch)
+                               paper_arch=search_args.paper_arch, fix_reduction=search_args.fix_reduction)
     # scheduler, optimizer and loss
     optimizer = torch.optim.SGD(base_model.parameters(), args.LR, momentum=args.momentum,
                                 weight_decay=args.decay, nesterov=args.nesterov)
@@ -34,11 +35,13 @@ def main(args):
     # save paths
     model_base_path = args.save_dir + f'/checkpoint/seed-{args.rand_seed}-basic.pth'
     model_best_path = args.save_dir + f'/checkpoint/seed-{args.rand_seed}-best.pth'
+
     network, criterion = base_model.cuda(), criterion.cuda()
 
     best_val_acc = -1
     writer = SummaryWriter(args.save_dir + '/logs')
     # training part
+
     for epoch in tqdm(range(args.epochs)):
         # set-up drop-out ratio
         # if hasattr(base_model, 'update_drop_path'): #### ?????
@@ -77,7 +80,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Train a classification model on typical image classification datasets.')
-    parser.add_argument('--ichannel', type=int, default=33)
+    parser.add_argument('--ichannel', type=int, default=36)
     parser.add_argument('--layers', type=int, default=6)
     parser.add_argument('--stem_multi', type=int, default=3)
     # parser.add_argument('--drop_path_prob', type=float, default=0.2)

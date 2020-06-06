@@ -1,12 +1,12 @@
 import torch
 import torch.nn as nn
 from cell_operations import OPS
-
+from cell_operations import GDAS_Reduction_Cell
 
 class NASNetonCIFAR(nn.Module):
 
     def __init__(self, C, N, stem_multiplier, num_classes, genotype, auxiliary, affine=True, track_running_stats=True,
-                 paper_arch=False):
+                 paper_arch=False, fix_reduction=False):
         super(NASNetonCIFAR, self).__init__()
         self._C = C
         self._layerN = N
@@ -24,8 +24,12 @@ class NASNetonCIFAR(nn.Module):
         self.auxiliary_head = None
         self.cells = nn.ModuleList()
         for index, (C_curr, reduction) in enumerate(zip(layer_channels, layer_reductions)):
-            cell = NASNetInferCell(genotype, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, affine,
-                                   track_running_stats)
+            if reduction and fix_reduction:
+                cell = GDAS_Reduction_Cell(C_prev_prev, C_prev, C_curr, reduction_prev, multiplier=4,
+                                           affine=affine, track_running_stats=track_running_stats)
+            else:
+                cell = NASNetInferCell(genotype, C_prev_prev, C_prev, C_curr, reduction, reduction_prev, affine,
+                                       track_running_stats)
             self.cells.append(cell)
             C_prev_prev, C_prev, reduction_prev = C_prev, cell.multiplier * C_curr, reduction
             if reduction and C_curr == C * 4 and auxiliary:
@@ -88,7 +92,7 @@ class NASNetInferCell(nn.Module):
             nodes, concats = genotype['normal'], genotype['normal_concat']
         else:
             nodes, concats = genotype['reduce'], genotype['reduce_concat']
-        self._multiplier = len(concats)
+        self.multiplier = len(concats)
         self._concats = concats
         self._steps = len(nodes)
         self._nodes = nodes

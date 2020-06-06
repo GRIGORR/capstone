@@ -90,8 +90,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=256, help='batch size')
     parser.add_argument('--arch_learning_rate', type=float, default=0.0003, help='learning rate for arch encoding')
     parser.add_argument('--arch_weight_decay', type=float, default=0.001, help='weight decay for arch encoding')
-    parser.add_argument('--tau_min', type=float, default=10.0, help='The minimum tau for Gumbel')
-    parser.add_argument('--tau_max', type=float, default=0.1, help='The maximum tau for Gumbel')
+    parser.add_argument('--tau_min', type=float, default=0.1, help='The minimum tau for Gumbel')
+    parser.add_argument('--tau_max', type=float, default=10, help='The maximum tau for Gumbel')
     parser.add_argument('--workers', type=int, default=4, help='number of data loading workers (default: 2)')
     parser.add_argument('--save_dir', type=str, help='Folder to save checkpoints and log.')
     parser.add_argument('--print_freq', type=int, default=200, help='print frequency (default: 200)')
@@ -176,7 +176,7 @@ if __name__ == '__main__':
                 'w_scheduler': w_scheduler.state_dict(),
                 'genotypes': genotypes,
             }, model_best_path)
-
+        w_scheduler.step()
     # save args
     with open(xargs.save_dir + '/args.json', 'w') as f:
         json.dump(xargs.__dict__, f, indent=2)
