@@ -33,13 +33,13 @@ def main(args):
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs, eta_min=args.eta_min)
     criterion = torch.nn.CrossEntropyLoss()
     # save paths
+    writer = SummaryWriter(args.save_dir + '/logs')
+    os.mkdir(args.save_dir + '/checkpoint/')
     model_base_path = args.save_dir + f'/checkpoint/seed-{args.rand_seed}-basic.pth'
     model_best_path = args.save_dir + f'/checkpoint/seed-{args.rand_seed}-best.pth'
-
     network, criterion = base_model.cuda(), criterion.cuda()
 
     best_val_acc = -1
-    writer = SummaryWriter(args.save_dir + '/logs')
     # training part
 
     for epoch in tqdm(range(args.epochs)):
