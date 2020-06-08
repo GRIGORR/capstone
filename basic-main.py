@@ -7,7 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from get_dataset_with_transform import get_datasets
 from models import NASNetonCIFAR
-from train_proc import train_one_epoch, validate
+from train_proc import train_one_epoch, validate, _parse
 
 torch.backends.cudnn.enabled = True
 torch.backends.cudnn.benchmark = False
@@ -22,9 +22,16 @@ def main(args):
                                                num_workers=args.workers, pin_memory=True)
     # load searched model genotype, infer the network
     xdata = torch.load(args.model_path)
-    genotype = xdata['genotypes'][xdata['epoch'] - 1]
+    # genotype = xdata['genotypes'][xdata['epoch']]
     with open('/'.join(args.model_path.split('/')[:-2]) + '/args.json', 'r') as file:
         search_args = json.load(file)
+    genotype = {'normal': _parse(torch.softmax(xdata['search_model']['arch_normal_parameters'], dim=-1),
+                                 steps=xdata['steps'], space=xdata['space'], edge_ixs=args.edge_ids),
+                'normal_concat': [2, 3, 4, 5],
+                'reduce': _parse(torch.softmax(xdata['search_model']['arch_reduce_parameters'], dim=-1),
+                                 steps=xdata['steps'], space=xdata['space'], edge_ixs=args.edge_ids),
+                'reduce_concat': [2, 3, 4, 5]}
+
     base_model = NASNetonCIFAR(args.ichannel, args.layers, args.stem_multi, args.class_num, genotype, args.auxiliary,
                                paper_arch=search_args['paper_arch'], fix_reduction=search_args['fix_reduction'])
     # scheduler, optimizer and loss
@@ -102,6 +109,8 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=96, help='Batch size for training.')
     parser.add_argument('--paper_arch', default=False, action='store_true',
                         help='Use architecture from paper or from official implementation')
+    parser.add_argument('--edge_ids', nargs='+', default=[0, 1], type=int,
+                        help='Which top connections to keep from genotype')
     args = parser.parse_args()
     args.class_num = 10
     if not os.path.isfile(args.model_path):

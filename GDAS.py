@@ -177,6 +177,9 @@ if __name__ == '__main__':
                 'genotypes': genotypes,
             }, model_best_path)
         w_scheduler.step()
+
+        if xargs.epochs % 5 == 0:
+            torch.cuda.empty_cache()
     # save args
     with open(xargs.save_dir + '/args.json', 'w') as f:
         json.dump(xargs.__dict__, f, indent=2)

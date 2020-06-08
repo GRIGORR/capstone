@@ -39,3 +39,22 @@ def validate(network, data_loader, criterion):
             accuracy.append((torch.sum(preds == targets).item() / targets.shape[0]) * 100)
 
     return np.mean(accuracy), np.mean(val_loss)
+
+
+def _parse(weights, steps, space, edge_ids=[0, 1]):
+    gene = []
+    edge2indx = {'0<-0': 0, '0<-1': 1, '1<-0': 2, '1<-1': 3, '1<-2': 4, '2<-0': 5, '2<-1': 6, '2<-2': 7,
+                 '2<-3': 8, '3<-0': 9, '3<-1': 10, '3<-2': 11, '3<-3': 12, '3<-4': 13}
+    for i in range(steps):
+        edges = []
+        for j in range(2 + i):
+            node_str = '{:}<-{:}'.format(i, j)
+            ws = weights[edge2indx[node_str]]
+            for k, op_name in enumerate(space):
+                if op_name == 'none':
+                    continue
+                edges.append((op_name, j, ws[k]))
+        edges = sorted(edges, key=lambda x: -x[-1])
+        selected_edges = edges[edge_ids[0]], edges[edge_ids[1]]
+        gene.append(tuple(selected_edges))
+    return gene
