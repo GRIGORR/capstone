@@ -60,9 +60,10 @@ def main(args):
         # evaluate the performance
         valid_acc1, valid_loss = validate(network, valid_loader, criterion)
         # write into tensorboard
-        writer.add_scalars('Loss', {'Val_loss': valid_loss}, epoch)
-        writer.add_scalars('Accuracy', {'Accuracy': valid_acc1}, epoch)
-        writer.add_scalars('Learning_rate', {'lr': optimizer.state_dict()['param_groups'][0]['lr']}, epoch)
+        writer.add_scalars('Loss', {'Val_loss': valid_loss}, epoch * len(train_loader))
+        writer.add_scalars('Accuracy', {'Accuracy': valid_acc1}, epoch * len(train_loader))
+        writer.add_scalars('Learning_rate', {'lr': optimizer.state_dict()['param_groups'][0]['lr']},
+                           epoch * len(train_loader))
         scheduler.step()
         # save current model
         torch.save({
