@@ -26,10 +26,10 @@ def main(args):
     with open('/'.join(args.model_path.split('/')[:-2]) + '/args.json', 'r') as file:
         search_args = json.load(file)
     genotype = {'normal': _parse(torch.softmax(xdata['search_model']['arch_normal_parameters'], dim=-1),
-                                 steps=xdata['steps'], space=xdata['space'], edge_ixs=args.edge_ids),
+                                 steps=search_args['steps'], space=search_args['space'], edge_ids=args.edge_ids),
                 'normal_concat': [2, 3, 4, 5],
                 'reduce': _parse(torch.softmax(xdata['search_model']['arch_reduce_parameters'], dim=-1),
-                                 steps=xdata['steps'], space=xdata['space'], edge_ixs=args.edge_ids),
+                                 steps=search_args['steps'], space=search_args['space'], edge_ids=args.edge_ids),
                 'reduce_concat': [2, 3, 4, 5]}
 
     base_model = NASNetonCIFAR(args.ichannel, args.layers, args.stem_multi, args.class_num, genotype, args.auxiliary,
