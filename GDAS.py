@@ -70,7 +70,9 @@ def train_one_epoch(xloader, network, criterion, w_optimizer, a_optimizer, write
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser("GDAS")
-    parser.add_argument('--data_path', type=str, help='Path to dataset')
+    parser.add_argument('--data_path', type=str, required=True, help='Path to dataset')
+    parser.add_argument('--dataset', type=str, required=True, default='cifar10',
+                        help='either cifar10 or cifar100')
     parser.add_argument('--channel', type=int, default=16,  help='The number of channels.')
     parser.add_argument('--num_cells', type=int, default=2, help='The number of cells in one block.')
     parser.add_argument('--steps', type=int, default=4, help='The number of nodes in one cell.')
@@ -108,7 +110,7 @@ if __name__ == '__main__':
                         help='Dont use gumbel softmax and sample directly')
 
     xargs = parser.parse_args()
-    xargs.num_classes = 10
+    xargs.num_classes = int(xargs.dataset.split('cifar')[1])
     xargs.xshape = (1, 3, 32, 32)
     xargs.space = ['none', 'skip_connect', 'dua_sepc_3x3', 'dua_sepc_5x5',
                    'dil_sepc_3x3', 'dil_sepc_5x5', 'avg_pool_3x3', 'max_pool_3x3']
@@ -122,8 +124,8 @@ if __name__ == '__main__':
     # tensorboad writer
     writer = SummaryWriter(xargs.save_dir + '/logs')
     # get dataset, dataloader, model, optimizers and loss
-    train_data, valid_data, xshape, class_num = get_datasets(xargs.data_path, -1)
-    search_loader = get_nas_search_loaders(train_data, xargs.data_path + '/cifar-split.txt', xargs.batch_size,
+    train_data, valid_data, xshape, class_num = get_datasets(xargs.data_path, xargs.dataset, -1)
+    search_loader = get_nas_search_loaders(train_data, valid_data, xargs.data_path + f'/{xargs.dataset}-split.txt', xargs.batch_size,
                                            xargs.workers)
     search_model = NASNetworkGDAS(xargs.channel, xargs.num_cells, xargs.steps, xargs.multiplier,
                                   xargs.stem_multiplier, xargs.num_classes, xargs.space,

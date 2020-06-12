@@ -1,5 +1,6 @@
 import numpy as np
 import json
+from copy import deepcopy
 import torch
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
@@ -32,38 +33,57 @@ class CUTOUT(object):
         return img
 
 
-def get_datasets(root, cutout):
-    mean = [x / 255 for x in [125.3, 123.0, 113.9]]
-    std = [x / 255 for x in [63.0, 62.1, 66.7]]
+def get_datasets(root, dataset='cifar10', cutout=-1):
+    mean_map = {'cifar10': [x / 255 for x in [125.3, 123.0, 113.9]],
+                'cifar100': [x / 255 for x in [129.3, 124.1, 112.4]]}
+    std_map = {'cifar10': [x / 255 for x in [63.0, 62.1, 66.7]],
+                'cifar100': [x / 255 for x in [68.2, 65.4, 70.4]]}
 
     lists = [transforms.RandomHorizontalFlip(), transforms.RandomCrop(32, padding=4), transforms.ToTensor(),
-             transforms.Normalize(mean, std)]
+             transforms.Normalize(mean_map[dataset], std_map[dataset])]
     if cutout > 0:
         lists += [CUTOUT(cutout)]
     train_transform = transforms.Compose(lists)
-    test_transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize(mean, std)])
+    test_transform = transforms.Compose([transforms.ToTensor(),
+                                         transforms.Normalize(mean_map[dataset], std_map[dataset])])
 
-    train_data = dset.CIFAR10(root, train=True, transform=train_transform, download=True)
-    test_data = dset.CIFAR10(root, train=False, transform=test_transform, download=True)
+    if dataset == 'cifar10':
+        train_data = dset.CIFAR10(root, train=True, transform=train_transform, download=True)
+        test_data = dset.CIFAR10(root, train=False, transform=test_transform, download=True)
+
+    elif dataset == 'cifar100':
+        train_data = dset.CIFAR100(root, train=True, transform=train_transform, download=True)
+        test_data = dset.CIFAR100(root, train=False, transform=test_transform, download=True)
+
+    else:
+        raise ValueError('Invalid dataset. Should be either cifar10 or cifar100')
     assert len(train_data) == 50000 and len(test_data) == 10000
+    return train_data, test_data, (1, 3, 32, 32), int(dataset.split('cifar')[1])
 
-    return train_data, test_data, (1, 3, 32, 32), 10
 
-
-def get_nas_search_loaders(train_data, config_root, batch_size, workers):
+def get_nas_search_loaders(train_data, valid_data, dataset, config_root, batch_size, workers):
     with open(config_root, 'r') as f:
         cifar_split = json.load(f)
-    train_split, valid_split = cifar_split['train'], cifar_split['valid']
-    search_data = SearchDataset(train_data, train_split, valid_split)
-    search_loader = torch.utils.data.DataLoader(search_data, batch_size=batch_size, shuffle=True, num_workers=workers,
-                                                pin_memory=True)
+    if dataset == 'cifar10':
+        train_split, valid_split = cifar_split['train'], cifar_split['valid']
+        search_data = SearchDataset(train_data, train_split, valid_split)
+        search_loader = torch.utils.data.DataLoader(search_data, batch_size=batch_size, shuffle=True,
+                                                    num_workers=workers, pin_memory=True)
+    elif dataset == 'cifar100':
+        search_train_data = train_data
+        search_valid_data = deepcopy(valid_data)
+        search_valid_data.transform = train_data.transform
+        search_data = SearchDataset(dataset, [search_train_data, search_valid_data],
+                                    list(range(len(search_train_data))), cifar_split.valid_split)
+
+        search_loader = torch.utils.data.DataLoader(search_data, batch_size=batch_size, shuffle=True,
+                                                    num_workers=workers, pin_memory=True)
     return search_loader
 
 
 class SearchDataset(data.Dataset):
 
     def __init__(self, data, train_split, valid_split):
-        self.datasetname = 'cifar10'
         self.data = data
         self.train_split = train_split
         self.valid_split = valid_split
@@ -73,7 +93,7 @@ class SearchDataset(data.Dataset):
 
     def __repr__(self):
         return ('{name}(name={datasetname}, train={tr_L}, valid={val_L}, version={ver})'.format(
-            name=self.__class__.__name__, datasetname=self.datasetname, tr_L=len(self.train_split),
+            name=self.__class__.__name__, dtr_L=len(self.train_split),
             val_L=len(self.valid_split), ver=self.mode_str))
 
     def __len__(self):
