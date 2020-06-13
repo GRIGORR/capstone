@@ -66,15 +66,15 @@ def get_nas_search_loaders(train_data, valid_data, dataset, config_root, batch_s
         cifar_split = json.load(f)
     if dataset == 'cifar10':
         train_split, valid_split = cifar_split['train'], cifar_split['valid']
-        search_data = SearchDataset(train_data, train_split, valid_split)
+        search_data = SearchDataset([train_data, train_data], train_split, valid_split)
         search_loader = torch.utils.data.DataLoader(search_data, batch_size=batch_size, shuffle=True,
                                                     num_workers=workers, pin_memory=True)
     elif dataset == 'cifar100':
         search_train_data = train_data
         search_valid_data = deepcopy(valid_data)
         search_valid_data.transform = train_data.transform
-        search_data = SearchDataset(dataset, [search_train_data, search_valid_data],
-                                    list(range(len(search_train_data))), cifar_split.valid_split)
+        search_data = SearchDataset([search_train_data, search_valid_data],
+                                    list(range(len(search_train_data))), cifar_split['valid_split'])
 
         search_loader = torch.utils.data.DataLoader(search_data, batch_size=batch_size, shuffle=True,
                                                     num_workers=workers, pin_memory=True)
@@ -84,11 +84,12 @@ def get_nas_search_loaders(train_data, valid_data, dataset, config_root, batch_s
 class SearchDataset(data.Dataset):
 
     def __init__(self, data, train_split, valid_split):
-        self.data = data
+        self.train_data = data[0]
+        self.valid_data = data[1]
         self.train_split = train_split
         self.valid_split = valid_split
-        intersection = set(train_split).intersection(set(valid_split))
-        assert len(intersection) == 0, 'the splitted train and validation sets should have no intersection'
+        # intersection = set(train_split).intersection(set(valid_split))
+        # assert len(intersection) == 0, 'the splitted train and validation sets should have no intersection'
         self.length = len(self.train_split)
 
     def __repr__(self):
@@ -103,7 +104,7 @@ class SearchDataset(data.Dataset):
         assert index >= 0 and index < self.length, 'invalid index = {:}'.format(index)
         train_index = self.train_split[index]
         valid_index = np.random.choice(self.valid_split)
-        train_image, train_label = self.data[train_index]
-        valid_image, valid_label = self.data[valid_index]
+        train_image, train_label = self.train_data[train_index]
+        valid_image, valid_label = self.valid_data[valid_index]
 
         return train_image, train_label, valid_image, valid_label

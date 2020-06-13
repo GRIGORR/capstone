@@ -125,8 +125,9 @@ if __name__ == '__main__':
     writer = SummaryWriter(xargs.save_dir + '/logs')
     # get dataset, dataloader, model, optimizers and loss
     train_data, valid_data, xshape, class_num = get_datasets(xargs.data_path, xargs.dataset, -1)
-    search_loader = get_nas_search_loaders(train_data, valid_data, xargs.data_path + f'/{xargs.dataset}-split.txt', xargs.batch_size,
-                                           xargs.workers)
+    search_loader = get_nas_search_loaders(train_data, valid_data, xargs.dataset,
+                                           xargs.data_path + f'/{xargs.dataset}-split.txt',
+                                           xargs.batch_size, xargs.workers)
     search_model = NASNetworkGDAS(xargs.channel, xargs.num_cells, xargs.steps, xargs.multiplier,
                                   xargs.stem_multiplier, xargs.num_classes, xargs.space,
                                   xargs.affine, xargs.track_running_stats, xargs.fix_reduction,

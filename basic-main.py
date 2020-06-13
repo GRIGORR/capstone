@@ -15,7 +15,7 @@ torch.backends.cudnn.deterministic = True
 
 def main(args):
     # get datasets and dataloaders
-    train_data, valid_data, xshape, class_num = get_datasets(args.data_path, args.cutout_length)
+    train_data, valid_data, xshape, class_num = get_datasets(args.data_path, args.dataset, args.cutout_length)
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=args.batch_size, shuffle=True,
                                                num_workers=args.workers, pin_memory=True)
     valid_loader = torch.utils.data.DataLoader(valid_data, batch_size=args.batch_size, shuffle=False,
@@ -32,7 +32,7 @@ def main(args):
                                  steps=search_args['steps'], space=search_args['space'], edge_ids=args.edge_ids),
                 'reduce_concat': [2, 3, 4, 5]}
 
-    base_model = NASNetonCIFAR(args.ichannel, args.layers, args.stem_multi, args.class_num, genotype, args.auxiliary,
+    base_model = NASNetonCIFAR(args.ichannel, args.layers, args.stem_multi, args.num_classes, genotype, args.auxiliary,
                                paper_arch=search_args['paper_arch'], fix_reduction=search_args['fix_reduction'])
     # scheduler, optimizer and loss
     optimizer = torch.optim.SGD(base_model.parameters(), args.LR, momentum=args.momentum,
@@ -90,6 +90,8 @@ if __name__ == '__main__':
         description='Train a classification model on typical image classification datasets.')
     parser.add_argument('--ichannel', type=int, default=36)
     parser.add_argument('--layers', type=int, default=6)
+    parser.add_argument('--dataset', type=str, required=True, default='cifar10',
+                        help='either cifar10 or cifar100')
     parser.add_argument('--stem_multi', type=int, default=3)
     # parser.add_argument('--drop_path_prob', type=float, default=0.2)
     parser.add_argument('--eta_min', type=float, default=0)
@@ -113,7 +115,7 @@ if __name__ == '__main__':
     parser.add_argument('--edge_ids', nargs='+', default=[0, 1], type=int,
                         help='Which top connections to keep from genotype')
     args = parser.parse_args()
-    args.class_num = 10
+    args.num_classes = int(args.dataset.split('cifar')[1])
     if not os.path.isfile(args.model_path):
         raise ValueError('invalid model_path : {:}'.format(args.model_path))
 
