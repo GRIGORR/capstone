@@ -2,30 +2,24 @@ import torch
 import torch.nn as nn
 from copy import deepcopy
 from search_cells import NASNetSearchCell as SearchCell
+from cell_operations import GDAS_Reduction_Cell
 
 
 class NASNetworkGDAS(nn.Module):
 
     def __init__(self, C, N, steps, multiplier, stem_multiplier, num_classes, search_space, affine,
-                 track_running_stats, fix_reduction, deconv, paper_arch, no_gumbel):
+                 track_running_stats, fix_reduction, paper_arch, no_gumbel):
         super(NASNetworkGDAS, self).__init__()
         self._C = C
         self._layerN = N
         self._steps = steps
         self._multiplier = multiplier
         self.fix_reduction = fix_reduction
-        self.deconv = deconv
         self.paper_arch = paper_arch
         self.no_gumbel = no_gumbel
-        if deconv:
-            from cell_operations_deconv import GDAS_Reduction_Cell
-            from deconvolution.models.deconv import FastDeconv
-            self.stem = FastDeconv(3, C * stem_multiplier, kernel_size=3, padding=1, bias=False)
-        else:
-            from cell_operations import GDAS_Reduction_Cell
-            self.stem = nn.Sequential(
-                nn.Conv2d(3, C * stem_multiplier, kernel_size=3, padding=1, bias=False),
-                nn.BatchNorm2d(C * stem_multiplier))
+        self.stem = nn.Sequential(
+            nn.Conv2d(3, C * stem_multiplier, kernel_size=3, padding=1, bias=False),
+            nn.BatchNorm2d(C * stem_multiplier))
 
         # config for each layer
         layer_channels = [C] * N + [C * 2] + [C * 2] * (N - 1 + paper_arch) + [C * 4] + [C * 4] * (N - 1 + paper_arch)
@@ -41,7 +35,7 @@ class NASNetworkGDAS(nn.Module):
                                            affine, track_running_stats)
             else:
                 cell = SearchCell(search_space, steps, multiplier, C_prev_prev, C_prev, C_curr, reduction,
-                                  reduction_prev, affine, track_running_stats, deconv)
+                                  reduction_prev, affine, track_running_stats)
                 if num_edge is None:
                     num_edge, edge2index = cell.num_edges, cell.edge2index
                 else:

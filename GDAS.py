@@ -1,15 +1,15 @@
 import torch
+from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import CosineAnnealingLR
 torch.backends.cudnn.enabled = True
 torch.backends.cudnn.benchmark = False
 torch.backends.cudnn.deterministic = True
-from apex import amp
+# from apex import amp
 import json
 import argparse
 import numpy as np
 from get_dataset_with_transform import get_datasets, get_nas_search_loaders
 from tqdm import tqdm
-from torch.utils.tensorboard import SummaryWriter
 import os
 from search_model_gdas_nasnet import NASNetworkGDAS
 
@@ -96,16 +96,13 @@ if __name__ == '__main__':
     parser.add_argument('--tau_max', type=float, default=10, help='The maximum tau for Gumbel')
     parser.add_argument('--workers', type=int, default=4, help='number of data loading workers (default: 2)')
     parser.add_argument('--save_dir', type=str, help='Folder to save checkpoints and log.')
-    parser.add_argument('--print_freq', type=int, default=200, help='print frequency (default: 200)')
     parser.add_argument('--rand_seed', type=int, default=1, help='manual seed')
     parser.add_argument('--fix_reduction', default=False, action='store_true',
                         help='Find or fix reduction cell')
     parser.add_argument('--mixed_prec', default=False, action='store_true',
                         help='Find or fix reduction cell')
-    parser.add_argument('--deconv', default=False, action='store_true',
-                        help='use deconvolution layer instead of standard convolution')
     parser.add_argument('--paper_arch', default=False, action='store_true',
-                        help='use architecture in paper not in official implementation')
+                        help='use architecture in paper, not in official implementation')
     parser.add_argument('--no_gumbel', default=False, action='store_true',
                         help='Dont use gumbel softmax and sample directly')
 
@@ -131,7 +128,7 @@ if __name__ == '__main__':
     search_model = NASNetworkGDAS(xargs.channel, xargs.num_cells, xargs.steps, xargs.multiplier,
                                   xargs.stem_multiplier, xargs.num_classes, xargs.space,
                                   xargs.affine, xargs.track_running_stats, xargs.fix_reduction,
-                                  xargs.deconv, xargs.paper_arch, xargs.no_gumbel)
+                                  xargs.paper_arch, xargs.no_gumbel)
     criterion = torch.nn.CrossEntropyLoss()
     w_optimizer = torch.optim.SGD(search_model.get_weights(), xargs.LR, momentum=xargs.momentum,
                                   weight_decay=xargs.decay, nesterov=xargs.nesterov)

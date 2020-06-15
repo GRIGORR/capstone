@@ -22,7 +22,6 @@ def main(args):
                                                num_workers=args.workers, pin_memory=True)
     # load searched model genotype, infer the network
     xdata = torch.load(args.model_path)
-    # genotype = xdata['genotypes'][xdata['epoch']]
     with open('/'.join(args.model_path.split('/')[:-2]) + '/args.json', 'r') as file:
         search_args = json.load(file)
     genotype = {'normal': _parse(torch.softmax(xdata['search_model']['arch_normal_parameters'], dim=-1),
@@ -93,7 +92,6 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, required=True, default='cifar10',
                         help='either cifar10 or cifar100')
     parser.add_argument('--stem_multi', type=int, default=3)
-    # parser.add_argument('--drop_path_prob', type=float, default=0.2)
     parser.add_argument('--eta_min', type=float, default=0)
     parser.add_argument('--epochs', type=int, default=300)
     parser.add_argument('--optim', type=str, default='SGD')
@@ -110,8 +108,6 @@ if __name__ == '__main__':
     parser.add_argument('--workers', type=int, default=8, help='number of data loading workers')
     parser.add_argument('--rand_seed', type=int, default=1, help='manual seed')
     parser.add_argument('--batch_size', type=int, default=96, help='Batch size for training.')
-    parser.add_argument('--paper_arch', default=False, action='store_true',
-                        help='Use architecture from paper or from official implementation')
     parser.add_argument('--edge_ids', nargs='+', default=[0, 1], type=int,
                         help='Which top connections to keep from genotype')
     args = parser.parse_args()

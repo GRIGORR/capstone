@@ -1,21 +1,16 @@
 import torch
 import torch.nn as nn
 from copy import deepcopy
+from cell_operations import OPS
 
 
 class NASNetSearchCell(nn.Module):
 
     def __init__(self, space, steps, multiplier, C_prev_prev, C_prev, C,
-                 reduction, reduction_prev, affine, track_running_stats, deconv):
+                 reduction, reduction_prev, affine, track_running_stats):
         super(NASNetSearchCell, self).__init__()
         self.reduction = reduction
         self.op_names = deepcopy(space)
-        self.deconv = deconv
-        if deconv:
-            from cell_operations_deconv import OPS
-        else:
-            from cell_operations import OPS
-
         if reduction_prev:
             self.preprocess0 = OPS['skip_connect'](C_prev_prev, C, 2, affine, track_running_stats)
         else:
